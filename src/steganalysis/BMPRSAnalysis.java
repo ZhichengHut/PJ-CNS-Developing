@@ -54,36 +54,28 @@ public class BMPRSAnalysis {
 	public double Analysis_Color(BufferedImage img, int color, boolean overlap){
 		int[] mask0 = new int[m*n];
 		int[] mask1 = new int[m*n];
-		int[] mask2 = new int[m*n];
-		int[] mask3 = new int[m*n];
+		int[] allmask = new int[m*n];
 		for(int i = 0; i < m * n; i++){
 			mask0[i] = i % 2;
 			mask1[i] = (i + 1) % 2;
-			mask2[i] = 1;
-			mask3[i] = -1;
+			allmask[i] = 1;
 		}
-		
-		
-		double[] result0 = doAnalysis(img, color, overlap, mask0);
-		double[] result1 = doAnalysis(img, color, overlap, mask1);
-		double[] result2 = doAnalysis(img, color, overlap, mask2);
-		double[] result3 = doAnalysis(img, color, overlap, mask3);
-		
+				
+		double[] result0 = doAnalysis(img, color, overlap, mask0, allmask, false);
+		double[] result1 = doAnalysis(img, color, overlap, mask1, allmask, false);
+		double[] result2 = doAnalysis(img, color, overlap, mask0, allmask, true);
+		double[] result3 = doAnalysis(img, color, overlap, mask1, allmask, true);
 		
 		double numGroup = result0[4] + result1[4];
 
 		double r = result0[0] + result1[0];
 		double rm = result0[2] + result1[2];
-		double r1 = result2[0];
-		double rm1 = result2[2];
-		//double r1 = result2[0] + result3[0];
-		//double rm1 = result2[2] + result3[2];
+		double r1 = result2[0] + result3[0];
+		double rm1 = result2[2] + result3[2];
 		double s = result0[1] + result1[1];
 		double sm = result0[3] + result1[3];
-		double s1 = result2[1];
-		double sm1 = result2[3];
-		//double s1 = result2[1] + result3[1];
-		//double sm1 = result2[3] + result3[3];
+		double s1 = result2[1] + result3[1];
+		double sm1 = result2[3] + result3[3];
 		
 		System.out.println(color);
 		System.out.println(r+" "+rm+" "+r1+" "+rm1);
@@ -186,7 +178,8 @@ public class BMPRSAnalysis {
 	 * result[3] = number of Negative Singular;
 	 * result[4] = the total number of groups
 	 */
-	private double[] doAnalysis(BufferedImage img, int color, boolean overlap, int[] mask){
+	private double[] doAnalysis(BufferedImage img, int color, boolean overlap, 
+			int[] mask,int[] allmask, boolean if_flip){
 		int width = img.getWidth();
 		int height = img.getHeight();
 		int[] block = new int[m * n];
@@ -196,17 +189,20 @@ public class BMPRSAnalysis {
 		int step_x = overlap ? 1 : m;
 		int step_y = overlap ? 1 : n;
 		
-		for(int x = 0; x < width - step_x; x += step_x){
-			for(int y = 0; y < height - step_y; y += step_y){
+		for(int x = 0; x < width - m; x += step_x){
+			for(int y = 0; y < height - n; y += step_y){
 				//Operation on each block
 				//Get the pixel value and save in block
 				int k = 0;
-				for(int i = 0; i < m; i++){
-					for(int j = 0; j < n; j++){
-						block[k] = img.getRGB(x + i, y + j);
+				for(int i = 0; i < n; i++){
+					for(int j = 0; j < m; j++){
+						block[k] = img.getRGB(x + j, y + i);
 						k++;
 					}
 				}
+				
+				if(if_flip)
+					block = flipping(block, allmask);
 				
 				//Calculate the discrimination on original blocks
 				discriminationO = getDiscrimination(block, color);
@@ -315,7 +311,7 @@ public class BMPRSAnalysis {
 	private int flipFunc(int color){
 		int new_color = (color & 0xfe);
 		if(new_color == color)
-			new_color = (new_color | 0x01);
+			new_color = (new_color | 0x1);
 		return new_color;
 	}
 	
@@ -336,11 +332,11 @@ public class BMPRSAnalysis {
 	
 	//Get the RGB channel from the pixel, respectively
 	private int getPixelColor(int pixel, int color){
-		if(color == 0)
+		if(color == BMPRSAnalysis.COLOUR_RED)
 			return getRed(pixel);
-		else if(color == 1)
+		else if(color == BMPRSAnalysis.COLOUR_GREEN)
 			return getGreen(pixel);
-		else if(color == 2)
+		else if(color == BMPRSAnalysis.COLOUR_BLUE)
 			return getBlue(pixel);
 		else
 			return 0;		
