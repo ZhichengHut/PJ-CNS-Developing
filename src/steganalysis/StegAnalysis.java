@@ -5,6 +5,8 @@ import java.io.IOException;
 
 import javax.swing.JPanel;
 
+import exceptions.ImageTypeNotSupportedException;
+
 public interface StegAnalysis {
 	/**
      * Provides the name of the {@link SteganalysisMethod}.
@@ -33,7 +35,7 @@ public interface StegAnalysis {
      * @throws ImageTypeNotSupportedException if the given file cannot be handled by the current method
      * @throws IOException if any I/O Error occurs
      */
-    //void init(File file) throws ImageTypeNotSupportedException, IOException;
+    void init(File file) throws ImageTypeNotSupportedException, IOException;
 
     /**
      * Provides a GUI element that enables the user to choose between different options of the method.

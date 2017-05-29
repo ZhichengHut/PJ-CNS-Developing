@@ -8,40 +8,89 @@
 
 package steganalysis;
 
+import java.awt.GridLayout;
 import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
 
-public class BMPRSAnalysis {
+import javax.imageio.ImageIO;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+
+import exceptions.ImageTypeNotSupportedException;
+
+public class BMPRSAnalysis implements StegAnalysis{
 	private int m = 2;
 	private int n = 2;
+	private boolean overlap = true;
+	private BufferedImage img = null;
 	public static final int COLOUR_RED = 0;
 	public static final int COLOUR_GREEN = 1;
 	public static final int COLOUR_BLUE = 2;
 	
 	/**
-	 * initialize the dimension of the mask
-	 * @param m: The width of the mask
-	 * @param n: The height of the mask
+	 * Initialize the image to be read in
 	 */
-	public BMPRSAnalysis(int m, int n){
+	@Override
+	public void init(File file) throws ImageTypeNotSupportedException, IOException {
+        if (!file.getName().endsWith(".bmp")) {
+            throw new ImageTypeNotSupportedException(file.toPath(), this.getSupportedImageTypes());
+        }
+        img = ImageIO.read(file);
+	}
+
+	@Override
+	public JPanel getOptionsPanel() {
+		// TODO Auto-generated method stub
+		return new JPanel();
+	}
+
+	
+	
+	/**
+	 * Set the overlap of RS Analysis
+	 * @param op
+	 */
+	public void setOverlap(boolean op){
+		this.overlap = op;
+	}
+	
+	/**
+	 * Set the size of analysis block to be m*n
+	 * @param m
+	 */
+	public void setM(int m){
 		this.m = m;
+	}
+	
+	/**
+	 * Set the size of analysis block to be m*n
+	 * @param n
+	 */
+	public void setN(int n){
 		this.n = n;
 	}
 	
 	/**
 	 * The function that user can used to get the analysis result
-	 * @param img: the image to be analysized
-	 * @param color: the color to be analysized
-	 * @param overlap: whether the mask is overlapped
 	 * @return: the analysis result
 	 */
-	public double[] Analysis(BufferedImage img, boolean overlap){
+	@Override
+	public JPanel analyze() throws Exception {
 		double[] result = new double[3];
 		for(int i=0; i < 3; i++){
 			result[i] = Analysis_Color(img, i, overlap);
 			System.out.println(result[i]);
 		}
 		
-		return result;
+		JPanel panel = new JPanel();
+        panel.setLayout(new GridLayout(4, 1));
+
+        panel.add(new JLabel("R  : " + result[0]));
+        panel.add(new JLabel("G  : " + result[1]));
+        panel.add(new JLabel("B  : " + result[2]));
+        panel.add(new JLabel("Average : " + ((result[0] + result[1] + result[2])/3.0)));
+        return panel;
 	}
 	
 	/**
@@ -60,13 +109,13 @@ public class BMPRSAnalysis {
 			mask1[i] = (i + 1) % 2;
 			allmask[i] = 1;
 		}
-				
+		
 		double[] result0 = doAnalysis(img, color, overlap, mask0, allmask, false);
 		double[] result1 = doAnalysis(img, color, overlap, mask1, allmask, false);
 		double[] result2 = doAnalysis(img, color, overlap, mask0, allmask, true);
 		double[] result3 = doAnalysis(img, color, overlap, mask1, allmask, true);
 		
-		double numGroup = result0[4] + result1[4];
+		//double numGroup = result0[4] + result1[4];
 
 		double r = result0[0] + result1[0];
 		double rm = result0[2] + result1[2];
@@ -112,33 +161,29 @@ public class BMPRSAnalysis {
 			double s, double sm, double s1, double sm1){
 		double x = 0; //the cross point.
 		
-		double dzero = r - s; // d0 = Rm(p/2) - Sm(p/2)
-		double dminuszero = rm - sm; // d-0 = R-m(p/2) - S-m(p/2)
-		double done = r1 - s1; // d1 = Rm(1-p/2) - Sm(1-p/2)
-		double dminusone = rm1 - sm1; // d-1 = R-m(1-p/2) - S-m(1-p/2)
+		double d0 = r - s; 		// d0 = Rm(p/2) - Sm(p/2)
+		double dm0 = rm - sm; 	// d-0 = R-m(p/2) - S-m(p/2)
+		double d1 = r1 - s1; 	// d1 = Rm(1-p/2) - Sm(1-p/2)
+		double dm1 = rm1 - sm1; // d-1 = R-m(1-p/2) - S-m(1-p/2)
 		
 		//get x as the root of the equation 
 		//2(d1 + d0)x^2 + (d-0 - d-1 - d1 - 3d0)x + d0 - d-0 = 0
-		//x = (-b +or- sqrt(b^2-4ac))/2a
-		//where ax^2 + bx + c = 0 and this is the form of the equation
+		//derive from the paper on page 3
 		
-		//thanks to a good friend in Dunedin, NZ for helping with maths
-		//and to Miroslav Goljan's fantastic Matlab code
-		
-		double a = 2 * (done + dzero);
-		double b = dminuszero - dminusone - done - (3 * dzero);
-		double c = dzero - dminuszero;
+		double a = 2 * (d1 + d0);
+		double b = dm0 - dm1 - d1 - (3 * d0);
+		double c = d0 - dm0;
 		
 		if(a == 0)
 		    //take it as a straight line
 		    x = c / b;
 		  		
 		//take it as a curve
-		double discriminant = Math.pow(b,2) - (4 * a * c);
+		double delta = Math.pow(b, 2) - (4 * a * c);
 		
-		if(discriminant >= 0){
-			double rootpos = ((-1 * b) + Math.sqrt(discriminant)) / (2 * a);
-			double rootneg = ((-1 * b) - Math.sqrt(discriminant)) / (2 * a);
+		if(delta >= 0){
+			double rootpos = ((-1 * b) + Math.sqrt(delta)) / (2 * a);
+			double rootneg = ((-1 * b) - Math.sqrt(delta)) / (2 * a);
 			
 			//return the root with the smallest absolute value (as per paper)
 			if(Math.abs(rootpos) <= Math.abs(rootneg))
@@ -179,7 +224,7 @@ public class BMPRSAnalysis {
 	 * result[4] = the total number of groups
 	 */
 	private double[] doAnalysis(BufferedImage img, int color, boolean overlap, 
-			int[] mask,int[] allmask, boolean if_flip){
+		int[] mask,int[] allmask, boolean if_flip){
 		int width = img.getWidth();
 		int height = img.getHeight();
 		int[] block = new int[m * n];
@@ -188,6 +233,8 @@ public class BMPRSAnalysis {
 		
 		int step_x = overlap ? 1 : m;
 		int step_y = overlap ? 1 : n;
+		
+		//int ii = 0;
 		
 		for(int x = 0; x < width - m; x += step_x){
 			for(int y = 0; y < height - n; y += step_y){
@@ -201,8 +248,9 @@ public class BMPRSAnalysis {
 					}
 				}
 				
-				if(if_flip)
+				if(if_flip){
 					block = flipping(block, allmask);
+				}
 				
 				//Calculate the discrimination on original blocks
 				discriminationO = getDiscrimination(block, color);
@@ -216,12 +264,17 @@ public class BMPRSAnalysis {
 				
 				//negative the mask and calculate the discrimination
 				mask = negMask(mask);
-				block = flipping(block, mask);
-				discriminationN = getDiscrimination(block, color);
+				//In order to keep value 256, getDiscrimination can not be reused here
+				discriminationN = getNegativeDiscrimination(block, color, mask);
 				
-				//turn the block and mask back
-				block = flipping(block, mask);
+				//turn the mask back
 				mask = negMask(mask);
+				
+				/*ii++;
+				if( ii < 100 && ii > 90){
+					System.out.println("i= " + ii + "variationB: " + discriminationO + " " + "variationP: " + 
+							discriminationF + " " + "variationN: " + discriminationN);
+				}*/
 				
 				//determine the block belong to which group
 				if(discriminationF > discriminationO)
@@ -277,6 +330,54 @@ public class BMPRSAnalysis {
 			
 			color1 = getPixelColor(block[i + 2], color);
 			color2 = getPixelColor(block[i + 0], color);
+			discrimination += Math.abs(color1 - color2);
+		}
+		return discrimination;
+	}
+
+	/**
+	 * Similar to discrimination.
+	 * But 256 & 0xff = 0, so we can't reuse the function getDiscrimination
+	 * Because we need the color value to be 256 in this case
+	 * @param block: 
+	 * @param color: The color to be analysized
+	 * @param mask: the inversed mask
+	 * @return: the value of discrimination
+	 */
+	private double getNegativeDiscrimination(int[] block, int color, int[] mask){
+		double discrimination = 0;
+		int color1, color2;
+		for(int i = 0; i < block.length; i = i + 4){
+			color1 = getPixelColor(block[0 + i], color);
+			color2 = getPixelColor(block[1 + i], color);
+			if(mask[0 + i] == -1)
+				color1 = shiftflipFunc(color1);
+			if(mask[1 + i] == -1)
+				color2 = shiftflipFunc(color2);
+			discrimination += Math.abs(color1 - color2);
+			
+			color1 = getPixelColor(block[1 + i], color);
+			color2 = getPixelColor(block[3 + i], color);
+			if(mask[1 + i] == -1)
+				color1 = shiftflipFunc(color1);
+			if(mask[3 + i] == -1)
+				color2 = shiftflipFunc(color2);
+			discrimination += Math.abs(color1 - color2);
+			
+			color1 = getPixelColor(block[3 + i], color);
+			color2 = getPixelColor(block[2 + i], color);
+			if(mask[3 + i] == -1)
+				color1 = shiftflipFunc(color1);
+			if(mask[2 + i] == -1)
+				color2 = shiftflipFunc(color2);
+			discrimination += Math.abs(color1 - color2);
+			
+			color1 = getPixelColor(block[2 + i], color);
+			color2 = getPixelColor(block[0 + i], color);
+			if(mask[2 + i] == -1)
+				color1 = shiftflipFunc(color1);
+			if(mask[0 + i] == -1)
+				color2 = shiftflipFunc(color2);
 			discrimination += Math.abs(color1 - color2);
 		}
 		return discrimination;
@@ -352,5 +453,20 @@ public class BMPRSAnalysis {
 	
 	private int getBlue(int pixel){
 		return (pixel & 0xff);
+	}
+	
+	@Override
+	public String getName() {
+		return "[BMP] RS Analysis";
+	}
+
+	@Override
+	public String[] getSupportedImageTypes() {
+		return new String[]{"bmp"};
+	}
+
+	@Override
+	public boolean supportsType(String type) {
+		return type.equals("bmp");
 	}
 }
