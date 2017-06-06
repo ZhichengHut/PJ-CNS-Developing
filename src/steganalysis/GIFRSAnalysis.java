@@ -1,74 +1,107 @@
 /**
- * RS Analysis on BMP image
- * return the possibility of hidding message
+ * RS Analysis algorithm derives from "Reliable detection of LSB steganography
+ * in color and grayscale images" by J. Fridrich, M. Goljan and R. Du. 
  * 
- * created by Zhicheng Mao
- * on 24th. May
+ * During coding I have consulted the code b3dk7 publishes on GitHub
+ * {@link https://github.com/b3dk7/StegExpose/}
+ * And should also thank Bastien Faure and Kathryn Hempstalk for publishing their source code
  */
+
 
 package steganalysis;
 
 import java.awt.GridLayout;
-import java.awt.image.BufferedImage;
-import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
-import javax.imageio.ImageIO;
+import javax.swing.ButtonGroup;
+import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.JRadioButton;
+import javax.swing.JTextField;
 
-import exceptions.ImageTypeNotSupportedException;
+import utils.libs.GifDecoder;
 
-public class GIFRSAnalysis implements StegAnalysis{
+public class GIFRSAnalysis implements SteganalysisMethod{
+	private GifDecoder decoder;
+	private int width;
+	private int height;
 	private int m = 2;
 	private int n = 2;
 	private boolean overlap = true;
-	private BufferedImage img = null;
-	public static final int COLOUR_RED = 0;
-	public static final int COLOUR_GREEN = 1;
-	public static final int COLOUR_BLUE = 2;
 	
 	/**
 	 * Initialize the image to be read in
 	 */
 	@Override
-	public void init(File file) throws ImageTypeNotSupportedException, IOException {
-        if (!file.getName().endsWith(".bmp")) {
-            throw new ImageTypeNotSupportedException(file.toPath(), this.getSupportedImageTypes());
-        }
-        img = ImageIO.read(file);
+	public void initialize(Path file) throws IOException{
+		try (InputStream is = Files.newInputStream(file)) {
+			decoder = new GifDecoder();
+			decoder.read(is);
+			width = decoder.getWidth();
+			height = decoder.getHeight();
+			}
 	}
 
 	@Override
-	public JPanel getOptionsPanel() {
-		// TODO Auto-generated method stub
-		return new JPanel();
-	}
-
-	
-	
-	/**
-	 * Set the overlap of RS Analysis
-	 * @param op
-	 */
-	public void setOverlap(boolean op){
-		this.overlap = op;
-	}
-	
 	/**
 	 * Set the size of analysis block to be m*n
-	 * @param m
-	 */
-	public void setM(int m){
-		this.m = m;
-	}
-	
-	/**
-	 * Set the size of analysis block to be m*n
+	 * and the Overlap
 	 * @param n
 	 */
-	public void setN(int n){
-		this.n = n;
+	public JPanel OptionsofAnalysis(){
+		// TODO Auto-generated method stub
+		JPanel SetPara = new JPanel();
+		
+		//set the size of mask
+		//need to be improved: when the parameter is illegal, show the warning message
+		//such as: when M and N are too big, are not an integer
+		SetPara.add(new JLabel("Please set the value of M: "));
+		JTextField M_num = new JTextField("2", 5);
+		SetPara.add(M_num);
+		
+		SetPara.add(new JLabel(" and the value of N: "));
+		JTextField N_num = new JTextField("2", 5);
+		SetPara.add(N_num);
+		
+		//the set button
+		JButton SetActive = new JButton("Set");
+		SetPara.add(SetActive);
+		SetActive.addActionListener(e -> {
+			m = Integer.parseInt(M_num.getText());
+			n = Integer.parseInt(N_num.getText());
+			//System.out.println("m = " + this.m + " n = " + this.n);
+		});
+		
+		//Set the overlap parameter
+		SetPara.add(new JLabel("Do you want to overlap the mask?"));
+		JRadioButton OverLap_true = new JRadioButton("True");
+        JRadioButton OverLap_false = new JRadioButton("False");  
+        OverLap_true.setSelected(true);
+        
+        ButtonGroup buttonGroup = new ButtonGroup();  
+        buttonGroup.add(OverLap_true);  
+        buttonGroup.add(OverLap_false);  
+        
+        SetPara.add(OverLap_false);
+        SetPara.add(OverLap_true);
+        
+        OverLap_false.addActionListener(e -> {
+        	OverLap_false.setSelected(true);
+        	this.overlap = false;
+        	//System.out.println(this.overlap);
+        });
+		
+        OverLap_true.addActionListener(e -> {
+        	OverLap_true.setSelected(true);
+        	this.overlap = true;
+        	//System.out.println(this.overlap);
+        });
+        
+		return SetPara;
 	}
 	
 	/**
@@ -76,31 +109,7 @@ public class GIFRSAnalysis implements StegAnalysis{
 	 * @return: the analysis result
 	 */
 	@Override
-	public JPanel analyze() throws Exception {
-		double[] result = new double[3];
-		for(int i=0; i < 3; i++){
-			result[i] = Analysis_Color(img, i, overlap);
-			System.out.println(result[i]);
-		}
-		
-		JPanel panel = new JPanel();
-        panel.setLayout(new GridLayout(4, 1));
-
-        panel.add(new JLabel("R  : " + result[0]));
-        panel.add(new JLabel("G  : " + result[1]));
-        panel.add(new JLabel("B  : " + result[2]));
-        panel.add(new JLabel("Average : " + ((result[0] + result[1] + result[2])/3.0)));
-        return panel;
-	}
-	
-	/**
-	 * Analysis for 3 colors
-	 * @param img
-	 * @param color
-	 * @param overlap
-	 * @return
-	 */
-	public double Analysis_Color(BufferedImage img, int color, boolean overlap){
+	public JPanel Analysis() throws Exception {
 		int[] mask0 = new int[m*n];
 		int[] mask1 = new int[m*n];
 		int[] allmask = new int[m*n];
@@ -110,10 +119,10 @@ public class GIFRSAnalysis implements StegAnalysis{
 			allmask[i] = 1;
 		}
 		
-		double[] result0 = doAnalysis(img, color, overlap, mask0, allmask, false);
-		double[] result1 = doAnalysis(img, color, overlap, mask1, allmask, false);
-		double[] result2 = doAnalysis(img, color, overlap, mask0, allmask, true);
-		double[] result3 = doAnalysis(img, color, overlap, mask1, allmask, true);
+		double[] result0 = doAnalysis(decoder, overlap, mask0, allmask, false);
+		double[] result1 = doAnalysis(decoder, overlap, mask1, allmask, false);
+		double[] result2 = doAnalysis(decoder, overlap, mask0, allmask, true);
+		double[] result3 = doAnalysis(decoder, overlap, mask1, allmask, true);
 		
 		//double numGroup = result0[4] + result1[4];
 
@@ -126,9 +135,16 @@ public class GIFRSAnalysis implements StegAnalysis{
 		double s1 = result2[1] + result3[1];
 		double sm1 = result2[3] + result3[3];
 		
-		System.out.println(color);
-		System.out.println(r+" "+rm+" "+r1+" "+rm1);
+		/*System.out.println(r+" "+rm+" "+r1+" "+rm1);
 		System.out.println(s+" "+sm+" "+s1+" "+sm1);
+		System.out.println(1 + " " + result0[0] +" "+ result1[0]);
+		System.out.println(2 + " " + result0[2] +" "+ result1[2]);
+		System.out.println(3 + " " + result2[0] +" "+ result3[0]);
+		System.out.println(4 + " " + result2[2] +" "+ result3[2]);
+		System.out.println(5 + " " + result0[1] +" "+  result1[1]);
+		System.out.println(6 + " " + result0[3] +" "+  result1[3]);
+		System.out.println(7 + " " + result2[1] +" "+  result3[1]);
+		System.out.println(8 + " " + result2[3] +" "+  result3[3]);*/
 		
 		double x = getX(r,  rm,  r1,  rm1, s,  sm,  s1,  sm1);
 		
@@ -139,13 +155,18 @@ public class GIFRSAnalysis implements StegAnalysis{
 		else
 			ml = Math.abs(x / (x - 0.5));
 		
-		return ml;
+		JPanel panel = new JPanel();
+        panel.setLayout(new GridLayout(1, 1));
+
+        panel.add(new JLabel("Average : " + ml));
+        return panel;
 	}
 	
 	/**
 	 * Gets the x value to get p=x/(x-1/2) according to RS equation. 
 	 * Described in paper 
 	 * "Reliable detection of LSB steganography in color and grayscale images".
+	 * Quote from https://github.com/b3dk7/StegExpose
 	 *
 	 * @param r The value of Rm(p/2).
 	 * @param rm The value of R-m(p/2).
@@ -213,7 +234,6 @@ public class GIFRSAnalysis implements StegAnalysis{
 	/**
 	 * 
 	 * @param img
-	 * @param color
 	 * @param overlap
 	 * @param mask
 	 * @return: return a double array with size of 5
@@ -223,10 +243,7 @@ public class GIFRSAnalysis implements StegAnalysis{
 	 * result[3] = number of Negative Singular;
 	 * result[4] = the total number of groups
 	 */
-	private double[] doAnalysis(BufferedImage img, int color, boolean overlap, 
-		int[] mask,int[] allmask, boolean if_flip){
-		int width = img.getWidth();
-		int height = img.getHeight();
+	private double[] doAnalysis(GifDecoder img, boolean overlap, int[] mask,int[] allmask, boolean if_flip){
 		int[] block = new int[m * n];
 		double discriminationO, discriminationF, discriminationN;
 		double numReg = 0, numNegReg = 0, numSin = 0, numNegSin = 0, numUnu = 0, numNegUnu = 0;
@@ -234,7 +251,7 @@ public class GIFRSAnalysis implements StegAnalysis{
 		int step_x = overlap ? 1 : m;
 		int step_y = overlap ? 1 : n;
 		
-		//int ii = 0;
+		byte[] bytePixels = img.getPixels();
 		
 		for(int x = 0; x < width - m; x += step_x){
 			for(int y = 0; y < height - n; y += step_y){
@@ -243,7 +260,7 @@ public class GIFRSAnalysis implements StegAnalysis{
 				int k = 0;
 				for(int i = 0; i < n; i++){
 					for(int j = 0; j < m; j++){
-						block[k] = img.getRGB(x + j, y + i);
+						block[k] = bytePixels[(width * (y + i) + x + j)] & 0xff;
 						k++;
 					}
 				}
@@ -253,28 +270,20 @@ public class GIFRSAnalysis implements StegAnalysis{
 				}
 				
 				//Calculate the discrimination on original blocks
-				discriminationO = getDiscrimination(block, color);
-				
+				discriminationO = getDiscrimination(block);
+
 				//Calculate the discrimination on flipped blocks
 				block = flipping(block, mask);
-				discriminationF = getDiscrimination(block, color);
-				
+				discriminationF = getDiscrimination(block);
+
 				//flip the block back
 				block = flipping(block, mask);
 				
 				//negative the mask and calculate the discrimination
 				mask = negMask(mask);
 				//In order to keep value 256, getDiscrimination can not be reused here
-				discriminationN = getNegativeDiscrimination(block, color, mask);
-				
-				//turn the mask back
+				discriminationN = getNegativeDiscrimination(block, mask);
 				mask = negMask(mask);
-				
-				/*ii++;
-				if( ii < 100 && ii > 90){
-					System.out.println("i= " + ii + "variationB: " + discriminationO + " " + "variationP: " + 
-							discriminationF + " " + "variationN: " + discriminationN);
-				}*/
 				
 				//determine the block belong to which group
 				if(discriminationF > discriminationO)
@@ -312,25 +321,25 @@ public class GIFRSAnalysis implements StegAnalysis{
 	 * @param color: The color to be analysized
 	 * @return: the value of discrimination
 	 */
-	double getDiscrimination(int[] block, int color){
+	private double getDiscrimination(int[] block){
 		double discrimination = 0;
-		int color1, color2;
+		int index1, index2;
 		for(int i = 0; i < block.length; i += 4){
-			color1 = getPixelColor(block[i + 0], color);
-			color2 = getPixelColor(block[i + 1], color);
-			discrimination += Math.abs(color1 - color2);
+			index1 = block[i + 0];
+			index2 = block[i + 1];
+			discrimination += Math.abs(index1 - index2);
 			
-			color1 = getPixelColor(block[i + 1], color);
-			color2 = getPixelColor(block[i + 3], color);
-			discrimination += Math.abs(color1 - color2);
+			index1 = block[i + 1];
+			index2 = block[i + 3];
+			discrimination += Math.abs(index1 - index2);
 			
-			color1 = getPixelColor(block[i + 3], color);
-			color2 = getPixelColor(block[i + 2], color);
-			discrimination += Math.abs(color1 - color2);
+			index1 = block[i + 3];
+			index2 = block[i + 2];
+			discrimination += Math.abs(index1 - index2);
 			
-			color1 = getPixelColor(block[i + 2], color);
-			color2 = getPixelColor(block[i + 0], color);
-			discrimination += Math.abs(color1 - color2);
+			index1 = block[i + 2];
+			index2 = block[i + 0];
+			discrimination += Math.abs(index1 - index2);
 		}
 		return discrimination;
 	}
@@ -338,70 +347,62 @@ public class GIFRSAnalysis implements StegAnalysis{
 	/**
 	 * Similar to discrimination.
 	 * But 256 & 0xff = 0, so we can't reuse the function getDiscrimination
-	 * Because we need the color value to be 256 in this case
+	 * Because we need the index value to be 256 in this case
 	 * @param block: 
-	 * @param color: The color to be analysized
 	 * @param mask: the inversed mask
 	 * @return: the value of discrimination
 	 */
-	private double getNegativeDiscrimination(int[] block, int color, int[] mask){
+	private double getNegativeDiscrimination(int[] block, int[] mask){
 		double discrimination = 0;
-		int color1, color2;
+		int index1, index2;
 		for(int i = 0; i < block.length; i = i + 4){
-			color1 = getPixelColor(block[0 + i], color);
-			color2 = getPixelColor(block[1 + i], color);
+			index1 = block[i + 0];
+			index2 = block[i + 1];
 			if(mask[0 + i] == -1)
-				color1 = shiftflipFunc(color1);
+				index1 = shiftflipFunc(index1);
 			if(mask[1 + i] == -1)
-				color2 = shiftflipFunc(color2);
-			discrimination += Math.abs(color1 - color2);
+				index2 = shiftflipFunc(index2);
+			discrimination += Math.abs(index1 - index2);
 			
-			color1 = getPixelColor(block[1 + i], color);
-			color2 = getPixelColor(block[3 + i], color);
+			index1 = block[i + 1];
+			index2 = block[i + 3];
 			if(mask[1 + i] == -1)
-				color1 = shiftflipFunc(color1);
+				index1 = shiftflipFunc(index1);
 			if(mask[3 + i] == -1)
-				color2 = shiftflipFunc(color2);
-			discrimination += Math.abs(color1 - color2);
+				index2 = shiftflipFunc(index2);
+			discrimination += Math.abs(index1 - index2);
 			
-			color1 = getPixelColor(block[3 + i], color);
-			color2 = getPixelColor(block[2 + i], color);
+			index1 = block[i + 3];
+			index2 = block[i + 2];
 			if(mask[3 + i] == -1)
-				color1 = shiftflipFunc(color1);
+				index1 = shiftflipFunc(index1);
 			if(mask[2 + i] == -1)
-				color2 = shiftflipFunc(color2);
-			discrimination += Math.abs(color1 - color2);
+				index2 = shiftflipFunc(index2);
+			discrimination += Math.abs(index1 - index2);
 			
-			color1 = getPixelColor(block[2 + i], color);
-			color2 = getPixelColor(block[0 + i], color);
+			index1 = block[i + 2];
+			index2 = block[i + 0];
 			if(mask[2 + i] == -1)
-				color1 = shiftflipFunc(color1);
+				index1 = shiftflipFunc(index1);
 			if(mask[0 + i] == -1)
-				color2 = shiftflipFunc(color2);
-			discrimination += Math.abs(color1 - color2);
+				index2 = shiftflipFunc(index2);
+			discrimination += Math.abs(index1 - index2);
 		}
 		return discrimination;
 	}
 	
 	//flipping the block according to the mask
 	private int[] flipping(int[] block, int[] mask){
-		int new_color = 0;
-		int red, green, blue;
+		int new_index = 0;
 		for(int i = 0; i < block.length; i++){
 			if(mask[i] == 1){
-				red = flipFunc(getRed(block[i]));
-				green = flipFunc(getGreen(block[i]));
-				blue = flipFunc(getBlue(block[i]));
-				new_color = (0xff << 24) | ((red  & 0xff) << 16) | ((green & 0xff) << 8) | ((blue & 0xff));
-				block[i] = new_color;
+				new_index = flipFunc(block[i]);
+				block[i] = new_index;
 			}
 			
 			else if(mask[i] == -1){
-				red = shiftflipFunc(getRed(block[i]));
-				green = shiftflipFunc(getGreen(block[i]));
-				blue = shiftflipFunc(getBlue(block[i]));
-				new_color = (0xff << 24) | ((red  & 0xff) << 16) | ((green & 0xff) << 8) | ((blue & 0xff));
-				block[i] = new_color;
+				new_index = shiftflipFunc(block[i]);
+				block[i] = new_index;
 			}
 		}
 		return block;
@@ -409,19 +410,20 @@ public class GIFRSAnalysis implements StegAnalysis{
 	
 	//The flip and shift flip function
 	//Defined in "Reliable detection of LSB steganography in color and grayscale images"
-	private int flipFunc(int color){
-		int new_color = (color & 0xfe);
-		if(new_color == color)
-			new_color = (new_color | 0x1);
-		return new_color;
+	private int flipFunc(int index){
+		int new_index = (index & 0xfe);
+		if(new_index == index)
+			return new_index | 0x1;
+		else
+			return new_index;
 	}
 	
-	private int shiftflipFunc(int color){
-		if(color == 255)
+	private int shiftflipFunc(int index){
+		if(index == 255)
 			return 256;
-		if(color == 256)
+		if(index == 256)
 			return 255;
-		return (flipFunc(color + 1) - 1);			
+		return (flipFunc(index + 1) - 1);			
 	}
 	
 	//Negative the mask
@@ -431,42 +433,18 @@ public class GIFRSAnalysis implements StegAnalysis{
 		return mask;
 	}
 	
-	//Get the RGB channel from the pixel, respectively
-	private int getPixelColor(int pixel, int color){
-		if(color == BMPRSAnalysis.COLOUR_RED)
-			return getRed(pixel);
-		else if(color == BMPRSAnalysis.COLOUR_GREEN)
-			return getGreen(pixel);
-		else if(color == BMPRSAnalysis.COLOUR_BLUE)
-			return getBlue(pixel);
-		else
-			return 0;		
-	}
-	
-	private int getRed(int pixel){
-		return ((pixel >> 16) & 0xff);
-	}
-	
-	private int getGreen(int pixel){
-		return ((pixel >> 8) & 0xff);
-	}
-	
-	private int getBlue(int pixel){
-		return (pixel & 0xff);
-	}
-	
 	@Override
-	public String getName() {
-		return "[BMP] RS Analysis";
+	public String getMethodName() {
+		return "[GIF] RS Analysis";
 	}
 
 	@Override
-	public String[] getSupportedImageTypes() {
-		return new String[]{"bmp"};
+	public String getSupportedImageType() {
+		return "gif";
 	}
 
 	@Override
-	public boolean supportsType(String type) {
-		return type.equals("bmp");
+	public boolean IsTypesupported(String Type) {
+		return Type.equals("gif");
 	}
 }

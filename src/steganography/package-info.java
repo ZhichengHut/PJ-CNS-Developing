@@ -1,8 +1,0 @@
-/**
- * 
- */
-/**
- * @author MAO
- *
- */
-package steganography;

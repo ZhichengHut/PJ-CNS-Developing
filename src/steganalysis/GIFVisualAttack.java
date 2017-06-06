@@ -6,26 +6,22 @@ import java.awt.Graphics;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
 
 import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
 import javax.swing.JPanel;
 
-import exceptions.ImageTypeNotSupportedException;
-
-public class GIFVisualAttack implements StegAnalysis{
+public class GIFVisualAttack implements SteganalysisMethod{
 	private File sourceimage = null;
 	private BufferedImage img = null;
-	private String name = "Image";
+	private String name = "GIFVisualAttack";
 	private int width = 0;
 	private int height = 0;
 	
-	public void init(File file) throws ImageTypeNotSupportedException, IOException {
-		if (!file.getName().endsWith(".gif")) {
-            throw new ImageTypeNotSupportedException(file.toPath(), this.getSupportedImageTypes());
-        }
+	public void initialize(Path file) throws IOException{
 		try {
-	        sourceimage = file; 
+	        sourceimage = new File(file.toString()); 
 	        img = ImageIO.read(sourceimage);
 	        width = img.getWidth();
 	        height = img.getHeight();
@@ -39,7 +35,7 @@ public class GIFVisualAttack implements StegAnalysis{
 	}
 
 	@Override
-	public JPanel analyze() throws Exception {
+	public JPanel Analysis() throws Exception {
 		int black=new Color(255,255,255).getRGB();
 		int white=new Color(0,0,0).getRGB();
 		
@@ -59,20 +55,7 @@ public class GIFVisualAttack implements StegAnalysis{
 			}
 		}
 		
-		/**need to be improved:
-		 * what if the name inputed illegal
-		 * showing on panel directly, instead of saving as a file
-		 */
-		File outputfile = new File("Image/"+name);
-		try {
-			ImageIO.write(Gray_LSB, "gif", outputfile);
-
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			System.out.println("here error");
-			e.printStackTrace();
-		}
-		
+		//Save in a JPanel
 		JPanel panel = null;
 		panel = new JPanel(){
 			protected void paintComponent(Graphics g) {
@@ -84,26 +67,25 @@ public class GIFVisualAttack implements StegAnalysis{
 		};
 		
 		return panel;
-		
 	}
 
 	@Override
-	public String getName() {
+	public String getMethodName() {
 		return "[GIF] Visual Attack";
 	}
 
 	@Override
-	public String[] getSupportedImageTypes() {
-		return new String[]{"gif"};
+	public String getSupportedImageType(){
+		return "gif";
 	}
 
 	@Override
-	public boolean supportsType(String type) {
-		return type.equals("bmp");
+	public boolean IsTypesupported(String Type){
+		return Type.equals("bmp");
 	}
 
 	@Override
-	public JPanel getOptionsPanel() {
+	public JPanel OptionsofAnalysis() {
 		// TODO Auto-generated method stub
 		return null;
 	}

@@ -1,38 +1,45 @@
 package steganalysis;
 
-import java.awt.Dimension;
-import java.awt.Graphics;
 import java.awt.GridLayout;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
 
 import javax.imageio.ImageIO;
+import javax.swing.ButtonGroup;
 import javax.swing.ImageIcon;
-import javax.swing.JCheckBox;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.JRadioButton;
 
-import exceptions.ImageTypeNotSupportedException;
-
-public class BMPVisualAttack implements StegAnalysis{
+public class BMPVisualAttack implements SteganalysisMethod{
 	private File sourceimage = null;
 	private BufferedImage img = null;
-	private String name = "Image.gif";
+	private String name = "BMPVisualAttack";
 	private int width = 0;
 	private int height = 0;
 	private int displayChannel = 0;
 	
+	private JPanel panel;
+	private BufferedImage R_LSB;
+	private BufferedImage G_LSB;
+	private BufferedImage B_LSB;
+	private boolean channelFlag = false;	
+	
 	//the parameter should be File
-	public void init(File file) throws ImageTypeNotSupportedException, IOException {
-		if (!file.getName().endsWith(".bmp")) {
-            throw new ImageTypeNotSupportedException(file.toPath(), this.getSupportedImageTypes());
-        }
+	public void initialize(Path file) throws IOException{
 		try {
-	        sourceimage = file;
+			sourceimage = new File(file.toString());
 	        img = ImageIO.read(sourceimage);
 	        width = img.getWidth();
 	        height = img.getHeight();
+	        panel = new JPanel();
+	        panel.setBounds(20, 20, 400, 300);
+	        R_LSB = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+			G_LSB = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+			B_LSB = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+	        
 	    } catch (IOException e) {
 	    	System.out.println("not find");
 	    }
@@ -43,50 +50,75 @@ public class BMPVisualAttack implements StegAnalysis{
 	}
 	
 	@Override
-	public JPanel getOptionsPanel() {
+	public JPanel OptionsofAnalysis() {
 		// TODO Auto-generated method stub
 		JPanel optionsPanel = new JPanel();
         optionsPanel.setLayout(new GridLayout(0, 1));
 
         optionsPanel.add(new JLabel("The Channel to be displayed: "));
-        // create options panel
-        JCheckBox R_Channel = new JCheckBox("R");
-        JCheckBox G_Channel = new JCheckBox("G");
-        JCheckBox B_Channel = new JCheckBox("B");
-        optionsPanel.add(R_Channel);
-        optionsPanel.add(G_Channel);
-        optionsPanel.add(B_Channel);
-
+        
+        //Create buttons
+        JRadioButton R_Channel = new JRadioButton("R-LSB");
+        JRadioButton G_Channel = new JRadioButton("G-LSB");  
+        JRadioButton B_Channel = new JRadioButton("B-LSB");  
         R_Channel.setSelected(true);
+        
+        //Create ButtonGroup
+        ButtonGroup buttonGroup = new ButtonGroup();  
+        buttonGroup.add(R_Channel);  
+        buttonGroup.add(G_Channel);  
+        buttonGroup.add(B_Channel);   
+        
+        //Add button to panel
+        optionsPanel.add(R_Channel);  
+        optionsPanel.add(G_Channel);  
+        optionsPanel.add(B_Channel); 
 
         R_Channel.addActionListener(e -> {
         	R_Channel.setSelected(true);
-        	G_Channel.setSelected(false);
-        	B_Channel.setSelected(false);
         	displayChannel = 0;
+        	//The panel will be repaint only after the analysis
+        	if(channelFlag){
+        		JLabel label = new JLabel(new ImageIcon(R_LSB));
+        		panel.removeAll();
+        		panel.add(label);
+        		panel.revalidate();
+        		panel.repaint();
+        	}
         });
         G_Channel.addActionListener(e -> {
-        	R_Channel.setSelected(false);
         	G_Channel.setSelected(true);
-        	B_Channel.setSelected(false);
         	displayChannel = 1;
+        	if(channelFlag){
+        		JLabel label = new JLabel(new ImageIcon(G_LSB));
+        		panel.removeAll();
+        		panel.add(label);
+        		panel.revalidate();
+        		panel.repaint();
+        	}
         });
         B_Channel.addActionListener(e -> {
-        	R_Channel.setSelected(false);
-        	G_Channel.setSelected(false);
         	B_Channel.setSelected(true);
-        	displayChannel =2;
+        	displayChannel = 2;
+        	if(channelFlag){
+        		JLabel label = new JLabel(new ImageIcon(B_LSB));
+        		panel.removeAll();
+        		panel.add(label);
+        		panel.revalidate();
+        		panel.repaint();
+        	}
         });
         return optionsPanel;
 	}
 	
+	public JPanel getPanel(){
+		return panel;
+	}
+	
 	//derive 3 images to display the LSB for RGB channels respectively
 	@Override
-	public JPanel analyze() throws Exception {
-		BufferedImage R_LSB = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
-		BufferedImage G_LSB = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
-		BufferedImage B_LSB = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
-		//BufferedImage[] LSB = new BufferedImage[3];
+	public JPanel Analysis() throws Exception{
+		this.channelFlag = true;
 		
 		for(int i=0; i<width; i++){
 			for(int j=0; j<height; j++){
@@ -118,22 +150,7 @@ public class BMPVisualAttack implements StegAnalysis{
 			}
 		}
 		
-		/**need to be improved:
-		 * what if the name inputed illegal
-		 * showing on panel directly, instead of saving as a file
-		 */
-		File outputfileR = new File("Image/" + name + "R_LSB.bmp");
-		File outputfileG = new File("Image/" + name + "G_LSB.bmp");
-		File outputfileB = new File("Image/" + name + "B_LSB.bmp");
-		try {
-			ImageIO.write(R_LSB, "bmp", outputfileR);
-			ImageIO.write(G_LSB, "bmp", outputfileG);
-			ImageIO.write(B_LSB, "bmp", outputfileB);
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			System.out.println("Image write error");
-			e.printStackTrace();
-		}
+		//Put the image into the JPanel
 		
 		BufferedImage displayImg;
 		if (displayChannel == 0) {
@@ -144,33 +161,30 @@ public class BMPVisualAttack implements StegAnalysis{
         	displayImg = B_LSB;
         }
 		
-		JPanel panel = null;
-		panel = new JPanel(){
-			protected void paintComponent(Graphics g) {
-				ImageIcon icon =new ImageIcon(displayImg);
-				Dimension size = this.getParent().getSize();
-				g.drawImage(icon.getImage(), 0, 0, size.width, size.height, icon.getImageObserver());
-				}
-		};
-
+		//JPanel panel = null;
+		JLabel label = new JLabel(new ImageIcon(displayImg));
+		panel.add(label);
+		//panel.revalidate();
+		panel.repaint();
+	    
         return panel;
 	}
 
 	@Override
-	public String getName() {
+	public String getMethodName() {
 		// TODO Auto-generated method stub
 		return "[BMP] Visual Attack";
 	}
 
 	@Override
-	public String[] getSupportedImageTypes() {
+	public String getSupportedImageType() {
 		// TODO Auto-generated method stub
-		return new String[]{"bmp"};
+		return "bmp";
 	}
 
 	@Override
-	public boolean supportsType(String type) {
+	public boolean IsTypesupported(String Type) {
 		// TODO Auto-generated method stub
-		return type.equals("bmp");
+		return Type.equals("bmp");
 	}
 }
